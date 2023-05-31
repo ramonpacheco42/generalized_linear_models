@@ -4,7 +4,9 @@ import numpy as np
 import rpy2.robjects as robjects
 import matplotlib.pyplot as plt
 import statsmodels.api as sm
-from scipy.stats import shapiro, norm
+from scipy.stats import shapiro, norm, boxcox
+from scipy import stats
+from rpy2.robjects import pandas2ri
 # %%
 # Configurando o arquivo RData
 robjects.pandas2ri.activate()
@@ -56,15 +58,66 @@ plt.hist(residuos, bins=30)
 plt.title('Histograma dos Residuos')
 plt.xlabel('Residuos')
 plt.ylabel('Frequência')
-# # Calculando a média e o desvio padrão dos resíduos
-# media_residuos = np.mean(residuos)
-# desvio_padrao_residuos = np.std(residuos)
-# # Gerando a curva normal teórica
-# curva_normal = np.random.normal(media_residuos, desvio_padrao_residuos, 1000)
-# # Plotando a curva normal teórica
-# plt.plot(curva_normal, 
-#          norm.pdf(curva_normal, loc=media_residuos, scale=desvio_padrao_residuos), 
-#          color='red', 
-#          label='Curva Normal Teórica')
+plt.show()
+# %%
+# Plotando um gráfico dos resíduos
+plt.scatter(predict_lin, residuos)
+plt.axhline(y=0, color='r', linestyle='-', linewidth=3)
+plt.xlabel('Fitted Values')
+plt.ylabel('Resíduos')
+plt.title('Distribuição dos Resíduos vs Fitted Values')
+plt.show()
+# %%
+# Usando a função "boxcox" para transformar a variável "comprimento"
+comprimento_boxcox, lambda_boxcox = stats.boxcox(df['comprimento'])
+
+# Adicionando os valors obtidos no cálculo do Box-Cox no datafram.
+df['bc_comprimento'] = comprimento_boxcox
+df
+# %%
+# Estimando um novo modelo OLS com variável dependente transformada por Box-Cox
+# Criando modelo para as resíduos:
+model_bc = sm.OLS(df['bc_comprimento'], x).fit()
+print(model_bc.summary())
+# %%
+# Teste de Shapiro-Francia para os resíduos do modeo_bc
+fitted_data, lambda_bc = boxcox(np.array(df['comprimento']))
+residuos_bc = model_bc.resid
+stat, p = shapiro(residuos_bc)
+print(p) 
+print(stat)
+print(lambda_bc)
+# %%
+# Plotando um histograma da variável residuos
+plt.hist(residuos_bc, bins=30)
+plt.title('Histograma dos Residuos_bc')
+plt.xlabel('Residuos_bc')
+plt.ylabel('Frequência')
+plt.show()
+# %%
+# Plotando um gráfico dos resíduos
+plt.scatter(fitted_data, residuos_bc)
+plt.axhline(y=0, color='r', linestyle='-', linewidth=3)
+plt.xlabel('Fitted Values')
+plt.ylabel('Resíduos')
+plt.title('Distribuição dos Resíduos vs Fitted Values')
+plt.show()
+# %%
+# Gravando o modelo Box Cox no Dataset
+df['predict_bc'] = (((fitted_data*lambda_bc)+1)**(1/lambda_bc))
+df['predict'] = predict_lin
+df
+# %%
+# 
+fig, ax = plt.subplots(figsize=(10, 6))
+ax.scatter(df['comprimento'], df['predict'], color="yellow", alpha=0.6, s=50)
+ax.scatter(df['comprimento'], df['predict_bc'], color="#440154FF", alpha=0.6, s=50)
+ax.plot(df['comprimento'], df['comprimento'], color='gray', lw=2, ls='--')
+
+ax.set_xlabel('Comprimento')
+ax.set_ylabel('Fitted Values')
+ax.set_title('Valores Previstos (fitted values) X Valores Reais')
+
+ax.legend(labels=['Modelo Linear', 'Modelo Box-Cox'])
 plt.show()
 # %%
